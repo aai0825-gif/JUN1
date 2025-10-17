@@ -28,30 +28,31 @@ object AlarmRepo {
     private const val FILE_NAME = "alarms.json"
 
     private val json = Json {
-        ignoreUnknownKeys = true   // 필드 추가/삭제에 견고
+        ignoreUnknownKeys = true
         isLenient = true
         encodeDefaults = true
     }
 
     private fun file(ctx: Context): File = File(ctx.filesDir, FILE_NAME)
 
-    /** 손상/구버전 데이터가 있으면 빈 리스트로 복구 (예외 삼켜 크래시 방지) */
+    /** 손상/구버전 데이터면 빈 리스트로 복구(백업 후 삭제) */
     fun loadAll(ctx: Context): List<AlarmSpec> {
         val f = file(ctx)
         if (!f.exists()) return emptyList()
-        return runCatching {
+
+        return try {
             val text = f.readText()
             if (text.isBlank()) emptyList()
-            else json.decodeFromString(text)
-        }.getOrElse { e ->
-            Log.e(TAG, "loadAll: data corrupted or incompatible. Resetting.", e)
-            // ---- 선택: 손상 데이터 백업 ----
-            runCatching {
+            else json.decodeFromString<List<AlarmSpec>>(text)
+        } catch (e: Exception) {
+            Log.e(TAG, "loadAll: corrupted/incompatible data. Resetting.", e)
+            // 손상 데이터 백업
+            try {
                 val bak = File(f.parentFile, "$FILE_NAME.bak")
                 f.copyTo(bak, overwrite = true)
-            }
-            // ---- 초기화 ----
-            runCatching { f.delete() }
+            } catch (_: Exception) {}
+            // 초기화
+            try { f.delete() } catch (_: Exception) {}
             emptyList()
         }
     }
@@ -64,20 +65,19 @@ object AlarmRepo {
     }
 
     fun toggle(ctx: Context, id: String, enabled: Boolean) {
-        val list = loadAll(ctx).map { if (it.id == id) it.copy(enabled = enabled) else it }
-        saveAll(ctx, list)
+        val updated = loadAll(ctx).map { if (it.id == id) it.copy(enabled = enabled) else it }
+        saveAll(ctx, updated)
     }
 
     fun delete(ctx: Context, id: String) {
-        val list = loadAll(ctx).filterNot { it.id == id }
-        saveAll(ctx, list)
+        val updated = loadAll(ctx).filterNot { it.id == id }
+        saveAll(ctx, updated)
     }
 
     private fun saveAll(ctx: Context, list: List<AlarmSpec>) {
-        runCatching {
-            val f = file(ctx)
-            f.writeText(json.encodeToString(list))
-        }.onFailure { e ->
+        try {
+            file(ctx).writeText(json.encodeToString<List<AlarmSpec>>(list))
+        } catch (e: Exception) {
             Log.e(TAG, "saveAll failed", e)
         }
     }
