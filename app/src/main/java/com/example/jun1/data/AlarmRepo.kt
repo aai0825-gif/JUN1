@@ -17,7 +17,7 @@ object AlarmRepo {
     fun loadAll(ctx: Context): List<AlarmSpec> {
         val f = file(ctx)
         if (!f.exists()) return emptyList()
-        return runCatching { json.decodeFromString(f.readText()) }.getOrElse { emptyList() }
+        return runCatching { json.decodeFromString<List<AlarmSpec>>(f.readText()) }.getOrElse { emptyList() }
     }
 
     private fun saveAll(ctx: Context, list: List<AlarmSpec>) {
