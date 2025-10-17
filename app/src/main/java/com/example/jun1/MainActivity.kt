@@ -99,13 +99,13 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun AlarmListScreen(onAdd: () -> Unit, onEdit: (String) -> Unit) {
     val ctx = LocalContext.current
-    var items by remember { mutableStateOf(emptyList<AlarmSpec>()) }
+    var items by remember { mutableStateOf<List<AlarmSpec>>(emptyList()) }
 
-    LaunchedEffect(Unit) {
-        items = AlarmRepo.loadAll(ctx)  // 예외는 Repo에서 처리
+     LaunchedEffect(Unit) {
+        items = AlarmRepo.loadAll(ctx)
         if (items.isEmpty()) {
-            // 최초 실행시 샘플 하나 생성
-            AlarmRepo.upsert(ctx, AlarmSpec(name = "물마시기"))
+            val sample = AlarmSpec(name = "물마시기")
+            AlarmRepo.upsert(ctx, sample)
             items = AlarmRepo.loadAll(ctx)
         }
     }
