@@ -7,6 +7,8 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import java.io.File
+import com.example.jun1.model.AlarmSpec
+
 
 @Serializable
 data class AlarmSpec(
