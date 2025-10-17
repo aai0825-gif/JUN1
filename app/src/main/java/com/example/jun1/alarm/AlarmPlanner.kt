@@ -1,47 +1,43 @@
 package com.example.jun1.alarm
 
 import android.content.Context
+import android.util.Log
 import com.example.jun1.data.AlarmRepo
-import com.example.jun1.model.AlarmMode
 import com.example.jun1.model.AlarmSpec
 
+/**
+ * 알람 예약/취소/발사 처리를 담당하는 중앙 모듈.
+ * 지금은 컴파일 목적의 최소 구현(stub)으로 Log만 남깁니다.
+ * 나중에 AlarmManager 연동 로직을 여기에 채워 넣으면 됩니다.
+ */
 object AlarmPlanner {
+    const val EXTRA_ALARM_ID = "com.example.jun1.extra.ALARM_ID"
+    private const val TAG = "AlarmPlanner"
 
-    /**
-     * 모든 알람을 다시 스케줄링
-     */
-    fun rescheduleAll(context: Context) {
-        val items: List<AlarmSpec> = AlarmRepo.loadAll(context)
-        // 리스트로 확실하게 순회 (Map 아님)
-        items.forEach { spec ->
-            if (spec.enabled) {
-                schedule(context, spec)
-            } else {
-                cancel(context, spec.id)
-            }
-        }
+    /** 부팅 후 모든 활성 알람 재예약 */
+    fun scheduleAll(ctx: Context) {
+        runCatching {
+            AlarmRepo.loadAll(ctx)
+                .filter { it.enabled }
+                .forEach { spec -> scheduleOne(ctx, spec) }
+        }.onFailure { Log.e(TAG, "scheduleAll failed", it) }
     }
 
-    /**
-     * 단일 알람 스케줄링
-     */
-    fun schedule(context: Context, spec: AlarmSpec) {
-        when (spec.mode) {
-            AlarmMode.Range -> {
-                // 예: 09:00~18:00 구간에서 intervalMinutes 마다 예약
-                // 실제 플랫폼별 예약은 이전에 쓰던 setExactAndAllowWhileIdle(...) 등으로 연결
-                // 여기서는 예시 로직만 남겨둡니다.
-                // planRange(context, spec) // 필요시 내부 구현으로 분리
-            }
-            AlarmMode.SingleTimes -> {
-                // 예: times 리스트에 들어있는 (hour, minute) 각각 예약
-                // planSingleTimes(context, spec)
-            }
-        }
-        // TODO: 실제 AlarmManager/WorkManager 연동 부분은 기존 프로젝트 코드 유지
+    /** 개별 알람 예약 (stub) */
+    fun scheduleOne(ctx: Context, spec: AlarmSpec) {
+        // TODO: AlarmManager로 실제 예약 구현
+        Log.d(TAG, "scheduleOne: id=${spec.id}, name=${spec.name}")
     }
 
-    fun cancel(context: Context, alarmId: String) {
-        // TODO: 기존 cancel 로직 연결
+    /** 개별 알람 취소 (stub) */
+    fun cancelOne(ctx: Context, id: String) {
+        // TODO: AlarmManager에서 해당 id의 PendingIntent 취소 구현
+        Log.d(TAG, "cancelOne: id=$id")
+    }
+
+    /** 알람 발사 시 콜백 (stub) */
+    fun onFired(ctx: Context, alarmId: String?) {
+        Log.d(TAG, "onFired: id=$alarmId")
+        // TODO: 다음 스케줄 예약/알림 표시 등 실제 동작 구현
     }
 }
