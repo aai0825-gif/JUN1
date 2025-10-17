@@ -51,27 +51,36 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun AppRoot() {
     val nav = rememberNavController()
+
     Scaffold(
         bottomBar = {
+            // ✅ 이 람다 자체가 @Composable 문맥입니다.
             NavigationBar {
-                val dest by nav.currentBackStackEntryAsState()
-                val route = dest?.destination?.route ?: "list"
+                // ✅ 반드시 이 람다 안에서 호출해야 함
+                val backStackEntry by nav.currentBackStackEntryAsState()
+                val route = backStackEntry?.destination?.route ?: "list"
+
                 NavigationBarItem(
                     selected = route.startsWith("list"),
                     onClick = { nav.navigate("list") { launchSingleTop = true } },
-                    icon = { Icon(Icons.Filled.List, null) },
+                    icon = { Icon(Icons.Filled.List, contentDescription = null) },
                     label = { Text("알람목록") }
                 )
                 NavigationBarItem(
                     selected = route.startsWith("edit"),
                     onClick = { nav.navigate("edit?alarmId=") { launchSingleTop = true } },
-                    icon = { Icon(Icons.Filled.Alarm, null) },
+                    icon = { Icon(Icons.Filled.Alarm, contentDescription = null) },
                     label = { Text("알람수정") }
                 )
             }
         }
     ) { pad ->
-        NavHost(navController = nav, startDestination = "list", modifier = Modifier.padding(pad)) {
+        // ✅ 이 람다도 @Composable 문맥
+        NavHost(
+            navController = nav,
+            startDestination = "list",
+            modifier = Modifier.padding(pad)
+        ) {
             composable("list") {
                 AlarmListScreen(
                     onAdd = { nav.navigate("edit?alarmId=") },
@@ -80,15 +89,16 @@ private fun AppRoot() {
             }
             composable(
                 "edit?alarmId={alarmId}",
-                arguments = listOf(navArgument("alarmId"){ type = NavType.StringType; nullable = true })
+                arguments = listOf(navArgument("alarmId") {
+                    type = NavType.StringType; nullable = true
+                })
             ) { back ->
                 val id = back.arguments?.getString("alarmId")
                 AlarmEditScreen(
                     alarmId = id,
                     onSaved = {
-                        // 저장 후 전체 스케줄 재설정
-                        AlarmPlanner.scheduleAll(LocalContext.current)
-                        nav.navigate("list"){ popUpTo("list"){ inclusive = true } }
+                        com.example.jun1.alarm.AlarmPlanner.scheduleAll(LocalContext.current)
+                        nav.navigate("list") { popUpTo("list") { inclusive = true } }
                     },
                     onBack = { nav.popBackStack() }
                 )
@@ -96,6 +106,7 @@ private fun AppRoot() {
         }
     }
 }
+
 
 /* ---------------- 리스트 ---------------- */
 
