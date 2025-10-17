@@ -26,7 +26,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 //import com.example.jun1.data.AlarmSpec
-//import com.example.jun1.data.AlarmRepo
+import com.example.jun1.data.AlarmRepo
 import com.example.jun1.model.AlarmSpec
 import com.example.jun1.model.AlarmMode
 import java.util.Calendar
