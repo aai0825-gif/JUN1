@@ -3,8 +3,10 @@ import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import com.example.jun1.data.AlarmRepo
-import com.example.jun1.data.AlarmSpec
+//import com.example.jun1.data.AlarmRepo
+//import com.example.jun1.data.AlarmSpec
+import com.example.jun1.model.AlarmSpec
+import com.example.jun1.model.AlarmMode
 
 import java.util.Calendar
 import kotlin.math.abs
