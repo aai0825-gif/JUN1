@@ -17,11 +17,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavType
+import androidx.navigation.navArgument
 import androidx.navigation.compose.*
 import com.example.jun1.data.AlarmRepo
 import com.example.jun1.model.AlarmSpec
 import java.util.Calendar
 import androidx.compose.ui.platform.LocalContext
+
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
