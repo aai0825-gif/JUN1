@@ -97,20 +97,19 @@ class MainActivity : ComponentActivity() {
 /* ----------------------- 목록 화면 ----------------------- */
 
 @Composable
-private fun AlarmListScreen(
-    onAdd: () -> Unit,
-    onEdit: (String) -> Unit
-) {
+private fun AlarmListScreen(onAdd: () -> Unit, onEdit: (String) -> Unit) {
     val ctx = LocalContext.current
-    var items by remember { mutableStateOf(AlarmRepo.loadAll(ctx)) }
+    var items by remember { mutableStateOf(emptyList<AlarmSpec>()) }
 
-    // 예시 데이터 하나 자동 추가
     LaunchedEffect(Unit) {
+        items = AlarmRepo.loadAll(ctx)  // 예외는 Repo에서 처리
         if (items.isEmpty()) {
+            // 최초 실행시 샘플 하나 생성
             AlarmRepo.upsert(ctx, AlarmSpec(name = "물마시기"))
             items = AlarmRepo.loadAll(ctx)
         }
     }
+
 
     Scaffold(
         topBar = { TopAppBar(title = { Text("알람목록") }) },
