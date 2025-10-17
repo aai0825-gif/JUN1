@@ -1,20 +1,49 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- 부팅 후 재예약용 -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+    <!-- Android 12(S)+ 정확한 알람 예약이 필요할 때 -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+
+    <!-- Android 13(T)+ 알림 표시 권한 -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- 알람 울릴 때 CPU 깨우기/진동(선택) -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+
     <application
         android:name=".App"
         android:allowBackup="true"
         android:label="@string/app_name"
-        android:theme="@style/Theme.JUN1"
-        android:supportsRtl="true">
-        <activity android:name=".MainActivity" android:exported="true">
+        android:supportsRtl="true"
+        android:theme="@style/Theme.JUN1">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <receiver android:name=".alarm.AlarmReceiver" android:exported="false" />
-        <receiver android:name=".alarm.BootReceiver" android:exported="true">
-            <intent-filter><action android:name="android.intent.action.BOOT_COMPLETED" /></intent-filter>
+
+        <!-- 알람 브로드캐스트 수신자: PendingIntent로 호출됨 (필터 불필요) -->
+        <receiver
+            android:name=".alarm.AlarmReceiver"
+            android:enabled="true"
+            android:exported="false" />
+
+        <!-- 부팅 완료 시 모든 알람 재예약 -->
+        <receiver
+            android:name=".alarm.BootReceiver"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
         </receiver>
+
     </application>
 </manifest>
