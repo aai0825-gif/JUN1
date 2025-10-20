@@ -9,8 +9,8 @@ import android.media.RingtoneManager
 import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -51,6 +51,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun AppRoot() {
     val nav = rememberNavController()
+    val ctx = LocalContext.current
 
     Scaffold(
         bottomBar = {
@@ -85,7 +86,7 @@ private fun AppRoot() {
                 )
             }
             composable(
-                "edit?alarmId={alarmId}",
+                route = "edit?alarmId={alarmId}",
                 arguments = listOf(
                     navArgument("alarmId") { type = NavType.StringType; nullable = true }
                 )
@@ -94,7 +95,8 @@ private fun AppRoot() {
                 AlarmEditScreen(
                     alarmId = id,
                     onSaved = {
-                        AlarmPlanner.scheduleAll(LocalContext.current)
+                        // 캡처해 둔 ctx 사용
+                        AlarmPlanner.scheduleAll(ctx)
                         nav.navigate("list") { popUpTo("list") { inclusive = true } }
                     },
                     onBack = { nav.popBackStack() }
