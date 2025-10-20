@@ -44,7 +44,7 @@ import java.util.Calendar
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent { MaterialTheme { AppRoot() } } // 이름 충돌 방지: AppRoot로 변경
+        setContent { MaterialTheme { AppRoot() } }
     }
 }
 
@@ -54,9 +54,7 @@ private fun AppRoot() {
 
     Scaffold(
         bottomBar = {
-            // ✅ 이 람다 자체가 @Composable 문맥입니다.
             NavigationBar {
-                // ✅ 반드시 이 람다 안에서 호출해야 함
                 val backStackEntry by nav.currentBackStackEntryAsState()
                 val route = backStackEntry?.destination?.route ?: "list"
 
@@ -75,7 +73,6 @@ private fun AppRoot() {
             }
         }
     ) { pad ->
-        // ✅ 이 람다도 @Composable 문맥
         NavHost(
             navController = nav,
             startDestination = "list",
@@ -89,15 +86,15 @@ private fun AppRoot() {
             }
             composable(
                 "edit?alarmId={alarmId}",
-                arguments = listOf(navArgument("alarmId") {
-                    type = NavType.StringType; nullable = true
-                })
+                arguments = listOf(
+                    navArgument("alarmId") { type = NavType.StringType; nullable = true }
+                )
             ) { back ->
                 val id = back.arguments?.getString("alarmId")
                 AlarmEditScreen(
                     alarmId = id,
                     onSaved = {
-                        com.example.jun1.alarm.AlarmPlanner.scheduleAll(LocalContext.current)
+                        AlarmPlanner.scheduleAll(LocalContext.current)
                         nav.navigate("list") { popUpTo("list") { inclusive = true } }
                     },
                     onBack = { nav.popBackStack() }
@@ -107,47 +104,55 @@ private fun AppRoot() {
     }
 }
 
-
 /* ---------------- 리스트 ---------------- */
 
 @Composable
 private fun AlarmListScreen(onAdd: () -> Unit, onEdit: (String) -> Unit) {
     val ctx = LocalContext.current
     var items by remember { mutableStateOf(AlarmRepo.loadAll(ctx)) }
+
     LaunchedEffect(Unit) {
         if (items.isEmpty()) {
             AlarmRepo.upsert(ctx, AlarmSpec(name = "물마시기"))
             items = AlarmRepo.loadAll(ctx)
         }
     }
+
     Scaffold(
         topBar = { TopAppBar(title = { Text("알람목록") }) },
         floatingActionButton = { FloatingActionButton(onClick = onAdd) { Icon(Icons.Filled.Add, null) } }
-    ){ pad ->
+    ) { pad ->
         LazyColumn(Modifier.padding(pad).padding(12.dp)) {
-            items(items, key={it.id}){ a ->
+            items(items, key = { it.id }) { a ->
                 ElevatedCard(
                     onClick = { onEdit(a.id) },
                     modifier = Modifier.fillMaxWidth()
-                ){
-                    Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically){
-                        Column(Modifier.weight(1f)){
-                            Text(a.name, style=MaterialTheme.typography.titleMedium)
+                ) {
+                    Row(
+                        Modifier.fillMaxWidth().padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text(a.name, style = MaterialTheme.typography.titleMedium)
                             Spacer(Modifier.height(4.dp))
-                            val range = "%02d:%02d ~ %02d:%02d".format(a.startHour,a.startMinute,a.endHour,a.endMinute)
-                            val extra = if (a.scheduleMode==ScheduleMode.RANGE)
+                            val range = "%02d:%02d ~ %02d:%02d"
+                                .format(a.startHour, a.startMinute, a.endHour, a.endMinute)
+                            val extra = if (a.scheduleMode == ScheduleMode.RANGE)
                                 "간격: ${a.intervalMinutes}분"
-                            else "시각: ${a.times.joinToString { "%02d:%02d".format(it/60,it%60) }}"
-                            Text(range, style=MaterialTheme.typography.bodyMedium)
-                            Text(extra, style=MaterialTheme.typography.bodySmall)
+                            else
+                                "시각: ${a.times.joinToString { "%02d:%02d".format(it / 60, it % 60) }}"
+                            Text(range, style = MaterialTheme.typography.bodyMedium)
+                            Text(extra, style = MaterialTheme.typography.bodySmall)
                         }
-                        Column(horizontalAlignment = Alignment.CenterHorizontally){
-                            Icon(Icons.Filled.Alarm, null); Spacer(Modifier.height(4.dp))
-                            Row(verticalAlignment = Alignment.CenterVertically){
-                                Text(if(a.enabled)"ON" else "OFF"); Spacer(Modifier.width(6.dp))
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(Icons.Filled.Alarm, null)
+                            Spacer(Modifier.height(4.dp))
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(if (a.enabled) "ON" else "OFF")
+                                Spacer(Modifier.width(6.dp))
                                 Switch(
-                                    checked=a.enabled,
-                                    onCheckedChange={
+                                    checked = a.enabled,
+                                    onCheckedChange = {
                                         AlarmRepo.toggle(ctx, a.id, it)
                                         items = AlarmRepo.loadAll(ctx)
                                         AlarmPlanner.scheduleAll(ctx)
@@ -166,38 +171,56 @@ private fun AlarmListScreen(onAdd: () -> Unit, onEdit: (String) -> Unit) {
 /* ---------------- 편집 ---------------- */
 
 @Composable
-private fun AlarmEditScreen(alarmId:String?, onSaved:()->Unit, onBack:()->Unit){
+private fun AlarmEditScreen(alarmId: String?, onSaved: () -> Unit, onBack: () -> Unit) {
     val ctx = LocalContext.current
     var spec by remember { mutableStateOf(alarmId?.let { AlarmRepo.find(ctx, it) } ?: AlarmSpec()) }
 
     // 벨소리 선택
     val ringPicker = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
-    ){ res ->
+    ) { res ->
         if (res.resultCode == Activity.RESULT_OK) {
-            val uri: Uri? = res.data?.getParcelableExtra(RingtoneManager.EXTRA_RINGTONE_PICKED_URI)
+            val uri: Uri? =
+                res.data?.getParcelableExtra(RingtoneManager.EXTRA_RINGTONE_PICKED_URI)
             spec = spec.copy(ringtoneUri = uri?.toString())
         }
     }
 
     Scaffold(
-        topBar={ TopAppBar(
-            title={Text("알람수정")},
-            navigationIcon={ IconButton(onClick=onBack){ Icon(Icons.Filled.List, "back") } },
-            actions={
-                IconButton(onClick={ AlarmRepo.delete(ctx, spec.id); AlarmPlanner.cancel(ctx, spec.id); onBack() }){
-                    Icon(Icons.Filled.Delete,"delete")
+        topBar = {
+            TopAppBar(
+                title = { Text("알람수정") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) { Icon(Icons.Filled.List, "back") }
+                },
+                actions = {
+                    IconButton(onClick = {
+                        AlarmRepo.delete(ctx, spec.id)
+                        AlarmPlanner.cancel(ctx, spec.id)
+                        onBack()
+                    }) { Icon(Icons.Filled.Delete, "delete") }
                 }
-            }
-        ) }
+            )
+        }
     ) { pad ->
-        Column(Modifier.padding(pad).padding(16.dp).fillMaxSize(), verticalArrangement = Arrangement.spacedBy(16.dp)){
-            OutlinedTextField(value=spec.name, onValueChange={ spec = spec.copy(name=it) }, label={ Text("알람이름") }, modifier=Modifier.fillMaxWidth())
+        Column(
+            Modifier.padding(pad).padding(16.dp).fillMaxSize(),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            OutlinedTextField(
+                value = spec.name,
+                onValueChange = { spec = spec.copy(name = it) },
+                label = { Text("알람이름") },
+                modifier = Modifier.fillMaxWidth()
+            )
 
             // 요일 선택
             Text("반복요일", fontWeight = FontWeight.Bold)
-            val labels = listOf("월","화","수","목","금","토","일")
-            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)){
+            val labels = listOf("월", "화", "수", "목", "금", "토", "일")
+            Row(
+                Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 labels.forEachIndexed { idx, label ->
                     val day = idx + 1
                     FilterChip(
@@ -212,7 +235,7 @@ private fun AlarmEditScreen(alarmId:String?, onSaved:()->Unit, onBack:()->Unit){
                 }
             }
 
-            // 반복 방식: FilterChip 2개로 토글
+            // 반복 방식
             Text("반복 방식", fontWeight = FontWeight.Bold)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilterChip(
@@ -231,47 +254,71 @@ private fun AlarmEditScreen(alarmId:String?, onSaved:()->Unit, onBack:()->Unit){
                 TimeRangeEditor(
                     startH = spec.startHour, startM = spec.startMinute,
                     endH = spec.endHour, endM = spec.endMinute,
-                    onChange = { sh, sm, eh, em -> spec = spec.copy(startHour = sh, startMinute = sm, endHour = eh, endMinute = em) }
+                    onChange = { sh, sm, eh, em ->
+                        spec = spec.copy(
+                            startHour = sh, startMinute = sm,
+                            endHour = eh, endMinute = em
+                        )
+                    }
                 )
-                Row(verticalAlignment = Alignment.CenterVertically){
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("간격"); Spacer(Modifier.width(12.dp))
-                    IntervalDropdown(spec.intervalMinutes){ v -> spec = spec.copy(intervalMinutes=v) }
+                    IntervalDropdown(spec.intervalMinutes) { v ->
+                        spec = spec.copy(intervalMinutes = v)
+                    }
                 }
             } else {
                 TimesEditor(
                     times = spec.times,
                     onAdd = { h, m ->
-                        val mins = h*60+m
+                        val mins = h * 60 + m
                         spec = spec.copy(times = (spec.times + mins).distinct().sorted())
                     },
-                    onRemove = { mins -> spec = spec.copy(times = spec.times.filterNot { it == mins }) }
+                    onRemove = { mins ->
+                        spec = spec.copy(times = spec.times.filterNot { it == mins })
+                    }
                 )
             }
 
             // 벨소리
             Text("벨소리", fontWeight = FontWeight.Bold)
-            val ringName = remember(spec.ringtoneUri){
-                spec.ringtoneUri?.let { u -> RingtoneManager.getRingtone(ctx, Uri.parse(u))?.getTitle(ctx) } ?: "시스템 기본"
+            val ringName = remember(spec.ringtoneUri) {
+                spec.ringtoneUri?.let { u ->
+                    RingtoneManager.getRingtone(ctx, Uri.parse(u))?.getTitle(ctx)
+                } ?: "시스템 기본"
             }
-            OutlinedButton(onClick={
+            OutlinedButton(onClick = {
                 val i = Intent(RingtoneManager.ACTION_RINGTONE_PICKER).apply {
                     putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_ALARM)
                     putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_SILENT, false)
-                    putExtra(RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, spec.ringtoneUri?.let(Uri::parse))
+                    putExtra(
+                        RingtoneManager.EXTRA_RINGTONE_EXISTING_URI,
+                        spec.ringtoneUri?.let(Uri::parse)
+                    )
                 }
                 ringPicker.launch(i)
-            }){ Text(ringName) }
+            }) { Text(ringName) }
 
             // 볼륨/지속
             Text("볼륨", fontWeight = FontWeight.Bold)
-            Row(verticalAlignment = Alignment.CenterVertically){
-                Slider(value=spec.volumePercent/100f, onValueChange={ spec = spec.copy(volumePercent=(it*100).toInt()) }, modifier=Modifier.weight(1f))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Slider(
+                    value = spec.volumePercent / 100f,
+                    onValueChange = { spec = spec.copy(volumePercent = (it * 100).toInt()) },
+                    modifier = Modifier.weight(1f)
+                )
                 Spacer(Modifier.width(8.dp)); Text("${spec.volumePercent}%")
             }
-            Row(verticalAlignment = Alignment.CenterVertically){ Text("지속"); Spacer(Modifier.width(12.dp)); RingDropdown(spec.ringSeconds){ v -> spec = spec.copy(ringSeconds=v)} }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("지속"); Spacer(Modifier.width(12.dp))
+                RingDropdown(spec.ringSeconds) { v -> spec = spec.copy(ringSeconds = v) }
+            }
 
             Spacer(Modifier.weight(1f))
-            Button(onClick={ AlarmRepo.upsert(ctx, spec); onSaved() }, modifier=Modifier.fillMaxWidth()){ Text("저장") }
+            Button(
+                onClick = { AlarmRepo.upsert(ctx, spec); onSaved() },
+                modifier = Modifier.fillMaxWidth()
+            ) { Text("저장") }
         }
     }
 }
@@ -285,16 +332,16 @@ private fun TimeRangeEditor(
     onChange: (Int, Int, Int, Int) -> Unit
 ) {
     val ctx = LocalContext.current
-    fun pick(h: Int, m: Int, cb:(Int,Int)->Unit) {
+    fun pick(h: Int, m: Int, cb: (Int, Int) -> Unit) {
         TimePickerDialog(ctx, { _, hh, mm -> cb(hh, mm) }, h, m, true).show()
     }
     Row(verticalAlignment = Alignment.CenterVertically) {
-        OutlinedButton(onClick = { pick(startH,startM){hh,mm-> onChange(hh,mm,endH,endM)} }) {
-            Text("%02d:%02d".format(startH,startM))
+        OutlinedButton(onClick = { pick(startH, startM) { hh, mm -> onChange(hh, mm, endH, endM) } }) {
+            Text("%02d:%02d".format(startH, startM))
         }
         Spacer(Modifier.width(12.dp)); Text("~"); Spacer(Modifier.width(12.dp))
-        OutlinedButton(onClick = { pick(endH,endM){hh,mm-> onChange(startH,startM,hh,mm)} }) {
-            Text("%02d:%02d".format(endH,endM))
+        OutlinedButton(onClick = { pick(endH, endM) { hh, mm -> onChange(startH, startM, hh, mm) } }) {
+            Text("%02d:%02d".format(endH, endM))
         }
     }
 }
@@ -308,7 +355,8 @@ private fun TimesEditor(
     val ctx = LocalContext.current
     OutlinedButton(onClick = {
         val now = Calendar.getInstance()
-        TimePickerDialog(ctx, { _, hh, mm -> onAdd(hh, mm) },
+        TimePickerDialog(
+            ctx, { _, hh, mm -> onAdd(hh, mm) },
             now.get(Calendar.HOUR_OF_DAY), now.get(Calendar.MINUTE), true
         ).show()
     }) { Text("시각 추가") }
@@ -319,9 +367,11 @@ private fun TimesEditor(
         } else {
             times.forEach { t ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("%02d:%02d".format(t/60, t%60), style = MaterialTheme.typography.bodyLarge)
+                    Text("%02d:%02d".format(t / 60, t % 60), style = MaterialTheme.typography.bodyLarge)
                     Spacer(Modifier.width(8.dp))
-                    IconButton(onClick = { onRemove(t) }) { Icon(Icons.Filled.Delete, contentDescription = "삭제") }
+                    IconButton(onClick = { onRemove(t) }) {
+                        Icon(Icons.Filled.Delete, contentDescription = "삭제")
+                    }
                 }
             }
         }
@@ -329,23 +379,37 @@ private fun TimesEditor(
 }
 
 @Composable
-private fun IntervalDropdown(cur:Int, onSelect:(Int)->Unit){
-    val opts = listOf(5,10,15,30,45,60,90,120); var exp by remember{ mutableStateOf(false) }
-    ExposedDropdownMenuBox(expanded=exp, onExpandedChange={exp=it}){
-        OutlinedTextField(value="$cur", onValueChange={}, readOnly=true, label={Text("분")}, modifier=Modifier.menuAnchor())
-        ExposedDropdownMenu(expanded=exp, onDismissRequest={exp=false}){
-            opts.forEach{ v -> DropdownMenuItem(text={Text("$v")}, onClick={ onSelect(v); exp=false }) }
+private fun IntervalDropdown(cur: Int, onSelect: (Int) -> Unit) {
+    val opts = listOf(5, 10, 15, 30, 45, 60, 90, 120)
+    var exp by remember { mutableStateOf(false) }
+    ExposedDropdownMenuBox(expanded = exp, onExpandedChange = { exp = it }) {
+        OutlinedTextField(
+            value = "$cur",
+            onValueChange = {},
+            readOnly = true,
+            label = { Text("분") },
+            modifier = Modifier.menuAnchor()
+        )
+        ExposedDropdownMenu(expanded = exp, onDismissRequest = { exp = false }) {
+            opts.forEach { v -> DropdownMenuItem(text = { Text("$v") }, onClick = { onSelect(v); exp = false }) }
         }
     }
 }
 
 @Composable
-private fun RingDropdown(cur:Int, onSelect:(Int)->Unit){
-    val opts = listOf(5,10,30,60,180); var exp by remember{ mutableStateOf(false) }
-    ExposedDropdownMenuBox(expanded=exp, onExpandedChange={exp=it}){
-        OutlinedTextField(value="$cur", onValueChange={}, readOnly=true, label={Text("초")}, modifier=Modifier.menuAnchor())
-        ExposedDropdownMenu(expanded=exp, onDismissRequest={exp=false}){
-            opts.forEach{ v -> DropdownMenuItem(text={Text("$v")}, onClick={ onSelect(v); exp=false }) }
+private fun RingDropdown(cur: Int, onSelect: (Int) -> Unit) {
+    val opts = listOf(5, 10, 30, 60, 180)
+    var exp by remember { mutableStateOf(false) }
+    ExposedDropdownMenuBox(expanded = exp, onExpandedChange = { exp = it }) {
+        OutlinedTextField(
+            value = "$cur",
+            onValueChange = {},
+            readOnly = true,
+            label = { Text("초") },
+            modifier = Modifier.menuAnchor()
+        )
+        ExposedDropdownMenu(expanded = exp, onDismissRequest = { exp = false }) {
+            opts.forEach { v -> DropdownMenuItem(text = { Text("$v") }, onClick = { onSelect(v); exp = false }) }
         }
     }
 }
