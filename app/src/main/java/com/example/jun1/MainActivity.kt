@@ -111,9 +111,8 @@ private fun AppRoot() {
 
 private val dayLabels = listOf("월","화","수","목","금","토","일")
 private fun daysSummary(days: Set<Int>): String =
-    if (days.containsAll(1..7)) "매일"
+    if ((1..7).all { it in days }) "매일"
     else days.sorted().joinToString("·") { d -> dayLabels.getOrNull(d - 1) ?: "" }
-
 /* ---------------- 리스트 ---------------- */
 
 @Composable
