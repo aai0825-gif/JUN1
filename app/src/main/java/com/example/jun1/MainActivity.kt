@@ -9,8 +9,8 @@ import android.media.RingtoneManager
 import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -86,18 +86,15 @@ private fun AppRoot() {
             }
             composable(
                 "edit?alarmId={alarmId}",
-                arguments = listOf(
-                    navArgument("alarmId") { type = NavType.StringType; nullable = true }
-                )
+                arguments = listOf(navArgument("alarmId") {
+                    type = NavType.StringType; nullable = true
+                })
             ) { back ->
                 val id = back.arguments?.getString("alarmId")
-                // ❗️Composable 문맥에서 미리 context를 받아둔다
-                val ctx = LocalContext.current
-
                 AlarmEditScreen(
                     alarmId = id,
                     onSaved = {
-                        AlarmPlanner.scheduleAll(ctx)
+                        AlarmPlanner.scheduleAll(LocalContext.current)
                         nav.navigate("list") { popUpTo("list") { inclusive = true } }
                     },
                     onBack = { nav.popBackStack() }
@@ -107,12 +104,6 @@ private fun AppRoot() {
     }
 }
 
-/* ---------------- 공통: 요일 라벨 ---------------- */
-
-private val dayLabels = listOf("월","화","수","목","금","토","일")
-private fun daysSummary(days: Set<Int>): String =
-    if ((1..7).all { it in days }) "매일"
-    else days.sorted().joinToString("·") { d -> dayLabels.getOrNull(d - 1) ?: "" }
 /* ---------------- 리스트 ---------------- */
 
 @Composable
@@ -138,29 +129,26 @@ private fun AlarmListScreen(onAdd: () -> Unit, onEdit: (String) -> Unit) {
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Row(
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
+                        Modifier.fillMaxWidth().padding(16.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column(Modifier.weight(1f)) {
                             Text(a.name, style = MaterialTheme.typography.titleMedium)
                             Spacer(Modifier.height(4.dp))
 
-                            // 시간 범위 / 특정 시각
+                            // 요일 표시 (매일/특정 요일)
+                            Text(formatDays(a.daysEnabled), style = MaterialTheme.typography.bodySmall)
+                            Spacer(Modifier.height(2.dp))
+
+                            // 시간/반복 정보
                             val range = "%02d:%02d ~ %02d:%02d"
                                 .format(a.startHour, a.startMinute, a.endHour, a.endMinute)
                             val extra = if (a.scheduleMode == ScheduleMode.RANGE)
                                 "간격: ${a.intervalMinutes}분"
                             else
                                 "시각: ${a.times.joinToString { "%02d:%02d".format(it / 60, it % 60) }}"
-
-                            // 요일 표시 추가
-                            val days = daysSummary(a.daysEnabled)
-
                             Text(range, style = MaterialTheme.typography.bodyMedium)
                             Text(extra, style = MaterialTheme.typography.bodySmall)
-                            Text(days, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
                         }
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Icon(Icons.Filled.Alarm, null)
@@ -186,6 +174,15 @@ private fun AlarmListScreen(onAdd: () -> Unit, onEdit: (String) -> Unit) {
     }
 }
 
+private fun formatDays(days: Set<Int>): String {
+    if (days.size == 7) return "매일"
+    if (days.isEmpty()) return "요일 없음"
+    val labels = listOf("월", "화", "수", "목", "금", "토", "일")
+    return days.sorted().joinToString(separator = "·") { d ->
+        labels.getOrNull(d - 1) ?: d.toString()
+    }
+}
+
 /* ---------------- 편집 ---------------- */
 
 @Composable
@@ -198,7 +195,8 @@ private fun AlarmEditScreen(alarmId: String?, onSaved: () -> Unit, onBack: () ->
         ActivityResultContracts.StartActivityForResult()
     ) { res ->
         if (res.resultCode == Activity.RESULT_OK) {
-            val uri: Uri? = res.data?.getParcelableExtra(RingtoneManager.EXTRA_RINGTONE_PICKED_URI)
+            val uri: Uri? =
+                res.data?.getParcelableExtra(RingtoneManager.EXTRA_RINGTONE_PICKED_URI)
             spec = spec.copy(ringtoneUri = uri?.toString())
         }
     }
@@ -224,6 +222,9 @@ private fun AlarmEditScreen(alarmId: String?, onSaved: () -> Unit, onBack: () ->
             Modifier
                 .padding(pad)
                 .padding(16.dp)
+                .verticalScroll(rememberScrollState())
+                .navigationBarsPadding()
+                .imePadding()
                 .fillMaxSize(),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
@@ -236,11 +237,12 @@ private fun AlarmEditScreen(alarmId: String?, onSaved: () -> Unit, onBack: () ->
 
             // 요일 선택
             Text("반복요일", fontWeight = FontWeight.Bold)
+            val labels = listOf("월", "화", "수", "목", "금", "토", "일")
             Row(
                 Modifier.horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                dayLabels.forEachIndexed { idx, label ->
+                labels.forEachIndexed { idx, label ->
                     val day = idx + 1
                     FilterChip(
                         selected = day in spec.daysEnabled,
@@ -281,8 +283,7 @@ private fun AlarmEditScreen(alarmId: String?, onSaved: () -> Unit, onBack: () ->
                     }
                 )
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("간격")
-                    Spacer(Modifier.width(12.dp))
+                    Text("간격"); Spacer(Modifier.width(12.dp))
                     IntervalDropdown(spec.intervalMinutes) { v ->
                         spec = spec.copy(intervalMinutes = v)
                     }
@@ -302,10 +303,12 @@ private fun AlarmEditScreen(alarmId: String?, onSaved: () -> Unit, onBack: () ->
 
             // 벨소리
             Text("벨소리", fontWeight = FontWeight.Bold)
-            val ringName = remember(spec.ringtoneUri) {
-                spec.ringtoneUri?.let { u ->
-                    RingtoneManager.getRingtone(ctx, Uri.parse(u))?.getTitle(ctx)
-                } ?: "시스템 기본"
+            val ringName by remember(spec.ringtoneUri) {
+                mutableStateOf(
+                    spec.ringtoneUri?.let { u ->
+                        RingtoneManager.getRingtone(ctx, Uri.parse(u))?.getTitle(ctx)
+                    } ?: "시스템 기본"
+                )
             }
             OutlinedButton(onClick = {
                 val i = Intent(RingtoneManager.ACTION_RINGTONE_PICKER).apply {
@@ -321,33 +324,24 @@ private fun AlarmEditScreen(alarmId: String?, onSaved: () -> Unit, onBack: () ->
 
             // 볼륨/지속
             Text("볼륨", fontWeight = FontWeight.Bold)
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
-            ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 Slider(
                     value = spec.volumePercent / 100f,
                     onValueChange = { spec = spec.copy(volumePercent = (it * 100).toInt()) },
                     modifier = Modifier.weight(1f)
                 )
-                Spacer(Modifier.width(8.dp))
-                Text("${spec.volumePercent}%")
+                Spacer(Modifier.width(8.dp)); Text("${spec.volumePercent}%")
             }
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("지속")
-                Spacer(Modifier.width(12.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("지속"); Spacer(Modifier.width(12.dp))
                 RingDropdown(spec.ringSeconds) { v -> spec = spec.copy(ringSeconds = v) }
             }
 
-            Spacer(Modifier.weight(1f))
-
-            // 하단 확인/취소 버튼
+            // 하단 액션 버튼
+            Spacer(Modifier.height(8.dp))
             Row(
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 OutlinedButton(
                     onClick = onBack,
@@ -359,6 +353,9 @@ private fun AlarmEditScreen(alarmId: String?, onSaved: () -> Unit, onBack: () ->
                     modifier = Modifier.weight(1f)
                 ) { Text("저장") }
             }
+
+            // 하단 네비게이션바/탭바와 겹치지 않도록 여유 공간
+            Spacer(Modifier.height(NavigationBarDefaults.ContainerHeight))
         }
     }
 }
